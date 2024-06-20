@@ -1,6 +1,15 @@
 unit DelphiFixes;
 
-{ Created by Bhavan Baijnath, a Gr11 student who finds Delphi's incompetency incredible frustrating. }
+{ Created by Bhavan Baijnath, a Gr11 student who finds Delphi's incompetency/complexity incredible frustrating.
+
+  These custom functions are designed to help speed up typecasting
+  Any type of variable can be inputted into these functions and (hopefully) the correct type will be outputted
+
+  Notable things:
+  - If a float is inputted into ToInt(), it will be correctly rounded off (Unlike the default Round() function)
+  - ToFloat() will work with both commas and decimals and (hopefully) won't cause any errors
+    (The other weird Windows formatting for decimals probably won't work though)
+}
 
 interface
 
