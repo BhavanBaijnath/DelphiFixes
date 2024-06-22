@@ -8,7 +8,8 @@ unit DelphiFixes;
   Notable things:
   - If a float is inputted into ToInt(), it will be correctly rounded off (Unlike the default Round() function)
   - ToFloat() will work with both commas and decimals and (hopefully) won't cause any errors
-    (The other weird Windows formatting for decimals probably won't work though)
+  (The other weird Windows formatting for decimals probably won't work though)
+  - For RemoveManyCharacters() the list of characters must be inputted as a string
 }
 
 interface
@@ -17,16 +18,20 @@ uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, Math;
 
-function ToString(input: Variant): String;
+function ToStr(input: Variant): String;
 function ToInt(input: Variant): Integer;
 function ToFloat(input: Variant): Real;
+procedure RemoveCharacter(cChar: char; var sString: String;
+  bCaseSensitive: Boolean);
+procedure RemoveManyCharacters(sChars: String; var sString: String;
+  bCaseSensitive: Boolean);
 
 implementation
 
 function ToFloat(input: Variant): Real;
 var
   i, iDecimalPos: Integer;
-  cFractionSeparator: Char;
+  cFractionSeparator: char;
   sInput, sInputTemp: String;
   iFraction, iInteger, iDigitsAfterDecimal: Integer;
 
@@ -41,16 +46,15 @@ begin
     sInputTemp := input;
     sInput := '';
 
+    for i := 1 to Length(sInputTemp) do
+      // Removes any characters that could cause errors
+      if ((sInputTemp[i] in ['0' .. '9']) or (sInputTemp[i] in [',', '.'])) then
+      begin
+        sInput := sInput + sInputTemp[i];
+      end;
+
     if not((Pos(',', sInputTemp) = 0) and (Pos('.', sInputTemp) = 0)) then
     begin
-
-      for i := 1 to Length(sInputTemp) do
-        // Removes any characters that could cause errors
-        if ((sInputTemp[i] in ['0' .. '9']) or (sInputTemp[i] in [',', '.']))
-          then
-        begin
-          sInput := sInput + sInputTemp[i];
-        end;
 
       cFractionSeparator := '-';
       iDecimalPos := -1;
@@ -75,7 +79,14 @@ begin
       Result := iInteger + iFraction / Power(10, iDigitsAfterDecimal);
     end
     else
-      Result := StrToInt(input)
+    begin
+
+      sInput := input;
+      RemoveCharacter(' ', sInput, False);
+
+      Result := StrToInt(sInput)
+
+    end;
 
   end;
 
@@ -97,7 +108,7 @@ begin
 
 end;
 
-function ToString(input: Variant): String;
+function ToStr(input: Variant): String;
 begin
 
   if (VarType(input) = varString) or (VarType(input) = varUString) then
@@ -112,6 +123,53 @@ begin
       Result := 'True'
     else
       Result := 'False';
+
+end;
+
+procedure RemoveCharacter(cChar: char; var sString: String;
+  bCaseSensitive: Boolean);
+var
+  i: Integer;
+  sResult, sStringCase: String;
+begin
+
+  if not bCaseSensitive then
+  begin
+    cChar := UpCase(cChar);
+    sStringCase := UpperCase(sString);
+  end
+  else
+    sStringCase := sString;
+
+  sResult := '';
+
+  for i := 1 to Length(sString) do
+    if sStringCase[i] <> cChar then
+      sResult := sResult + sString[i];
+
+  sString := sResult;
+
+end;
+
+procedure RemoveManyCharacters(sChars: String; var sString: String;
+  bCaseSensitive: Boolean);
+var
+  i: Integer;
+  sResult: String;
+begin
+
+  sResult := sString;
+
+  { for i := 1 to Length(sString) do
+    if sString[i] in arrChars then
+    sResult := sResult + sString[i]; }
+
+  for i := 1 to Length(sChars) do
+  begin
+    RemoveCharacter(sChars[i], sResult, bCaseSensitive)
+  end;
+
+  sString := sResult;
 
 end;
 
