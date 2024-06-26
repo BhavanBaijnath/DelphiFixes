@@ -1,15 +1,33 @@
 unit DelphiFixes;
 
-{ Created by Bhavan Baijnath, a Gr11 student who finds Delphi's incompetency/complexity incredible frustrating.
+{ Version: 1.0.3 - 26 June 2024
+  Updates on GitHub: https://github.com/BhavanBaijnath/DelphiFixes
 
-  These custom functions are designed to help speed up typecasting
-  Any type of variable can be inputted into these functions and (hopefully) the correct type will be outputted
+  Created by Bhavan Baijnath, a Gr11 student who finds Delphi's incompetency and complexity incredible frustrating.
+
+  ToStr(), ToInt(), ToFloat():
+  - These custom functions are designed to help speed up typecasting
+  - Any type of variable can be inputted into these functions and (hopefully) the correct type will be outputted
+
+  RemoveCharacter() & RemoveManyCharacters():
+  - As the name suggests, they remove characters.
+  - RemoveCharacter() inputs a single character and the string to be processed, aswell as a boolean for case sensitive
+  - RemoveManyCharacters() is the same as RemoveCharacter() except a string of the characters to remove is inputted rather than a character
+
+  LocalFilePath():
+  - LocalFilePath() will output the complete file path for the file inputted (assuming the file is in the same folder or in a sub folder found in the projects folder)
+
+  eg. Your project is stored in 'C:\Delphi Projects\':
+  LocalFilePath('image.png') will return 'C:\Delphi Projects\image.png'
+  LocalFilePath('Images\image.png') will return 'C:\Delphi Projects\Images\image.png'
 
   Notable things:
   - If a float is inputted into ToInt(), it will be correctly rounded off (Unlike the default Round() function)
   - ToFloat() will work with both commas and decimals and (hopefully) won't cause any errors
   (The other weird Windows formatting for decimals probably won't work though)
   - For RemoveManyCharacters() the list of characters must be inputted as a string
+
+  Enjoy
 }
 
 interface
@@ -25,6 +43,7 @@ procedure RemoveCharacter(cChar: char; var sString: String;
   bCaseSensitive: Boolean);
 procedure RemoveManyCharacters(sChars: String; var sString: String;
   bCaseSensitive: Boolean);
+function FilePath(sLocalPath: String): String;
 
 implementation
 
@@ -170,6 +189,23 @@ begin
   end;
 
   sString := sResult;
+
+end;
+
+function FilePath(sLocalPath: String): String;
+
+var
+  i: Integer;
+
+begin
+
+  sLocalPath := Trim(sLocalPath);
+
+  for i := 1 to Length(sLocalPath) do
+    if sLocalPath[i] = '/' then
+      sLocalPath[i] = '\';
+
+  Result := ExtractFilePath(Application.ExeName) + sLocalPath;
 
 end;
 
