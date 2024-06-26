@@ -201,9 +201,12 @@ begin
 
   sLocalPath := Trim(sLocalPath);
 
+  if sLocalPath[1] in ['\', '/'] then
+    Delete(sLocalPath, 1, 1);
+
   for i := 1 to Length(sLocalPath) do
     if sLocalPath[i] = '/' then
-      sLocalPath[i] = '\';
+      sLocalPath[i] := '\';
 
   Result := ExtractFilePath(Application.ExeName) + sLocalPath;
 
