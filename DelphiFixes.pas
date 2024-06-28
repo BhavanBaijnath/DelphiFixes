@@ -1,6 +1,6 @@
 unit DelphiFixes;
 
-{ Version: 1.0.3 - 26 June 2024
+{ Version: 1.0.5 - 28 June 2024
   Updates on GitHub: https://github.com/BhavanBaijnath/DelphiFixes
 
   Created by Bhavan Baijnath, a Gr11 student who finds Delphi's incompetency and complexity incredible frustrating.
@@ -10,22 +10,47 @@ unit DelphiFixes;
   - Any type of variable can be inputted into these functions and (hopefully) the correct type will be outputted
 
   RemoveCharacter() & RemoveManyCharacters():
-  - As the name suggests, they remove characters.
+  - Procedures to remove characters
   - RemoveCharacter() inputs a single character and the string to be processed, aswell as a boolean for case sensitive
   - RemoveManyCharacters() is the same as RemoveCharacter() except a string of the characters to remove is inputted rather than a character
 
   LocalFilePath():
-  - LocalFilePath() will output the complete file path for the file inputted (assuming the file is in the same folder or in a sub folder found in the projects folder)
-
-  eg. Your project is stored in 'C:\Delphi Projects\':
+  - A function to output the complete file path for the file inputted (assuming the file is in the same folder or in a sub folder found in the projects folder)
+  eg.
+  Your project is stored in 'C:\Delphi Projects\':
   LocalFilePath('image.png') will return 'C:\Delphi Projects\image.png'
   LocalFilePath('Images\image.png') will return 'C:\Delphi Projects\Images\image.png'
+
+  ConnectDatabase():
+  - A procedure to connect a ADOConnection to a .mdb file at the specified path (if only part of the path is given it assumes it is in the same directory as the project or in a subfolder in that directory)
+
+  ConnectTable():
+  - A procedure to connect a ADOTable to the specified ADOConnection
+
+  EditRecord() & InsertRecord():
+  - Two very similar procedures to edit/insert records in the specified table
+  - The input of the fields are specified using an array
+  - Inputs for ALL the fields should be given in their original data type
+  - To avoid errors when processing, if a field is an autonumber no changes will be made
+  eg.
+  InsertRecord(tblUsers, ['', 'Bhavan', 'P@$$w0rd', '3 October 2007']) - The fields are UserID | Username | Password | DateOfBirth
+  Will output:
+  UserID  | Username  | Password  | DateOfBirth
+  1       | Bhavan    | P@$$w0rd  | 03/10/2007
+
+  DeleteRecord():
+  - A procedure based on Delphi's TADOTable.Delete procedure
+  - Also checks if the specified table is not empty to avoid errors
+
+  CloseTables() & OpenTables():
+  - Procedures that close all tables inputted through an array
 
   Notable things:
   - If a float is inputted into ToInt(), it will be correctly rounded off (Unlike the default Round() function)
   - ToFloat() will work with both commas and decimals and (hopefully) won't cause any errors
   (The other weird Windows formatting for decimals probably won't work though)
   - For RemoveManyCharacters() the list of characters must be inputted as a string
+  - DeleteRecord(), InsertRecord() and EditRecord() check if the table is already opened, if not the table will be opened at the begining and closed at the end
 
   Enjoy
 }
@@ -34,7 +59,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, Math;
+  Dialogs, Math, ADODB, DB, ExtCtrls;
 
 function ToStr(input: Variant): String;
 function ToInt(input: Variant): Integer;
@@ -44,6 +69,17 @@ procedure RemoveCharacter(cChar: char; var sString: String;
 procedure RemoveManyCharacters(sChars: String; var sString: String;
   bCaseSensitive: Boolean);
 function FilePath(sLocalPath: String): String;
+procedure ConnectDatabase(var conDatabase: TADOConnection;
+  sDatabaseLocation: String; owner: TObject);
+procedure ConnectTable(var tblTable: TADOTable; sTableName: String;
+  conDatabase: TADOConnection);
+procedure EditRecord(var tblTable: TADOTable; arrInput: Array of Variant);
+procedure InsertRecord(var tblTable: TADOTable; arrInput: Array of Variant);
+procedure DeleteRecord(var tblTable: TADOTable);
+procedure OpenTables(arrTables: Array of TADOTable);
+procedure CloseTables(arrTables: Array of TADOTable);
+function CreatePanel(iWidth: Integer; iHeight: Integer; iLeft: Integer;
+  iTop: Integer; sName: String; owner: TComponent): TPanel;
 
 implementation
 
@@ -209,6 +245,158 @@ begin
       sLocalPath[i] := '\';
 
   Result := ExtractFilePath(Application.ExeName) + sLocalPath;
+
+end;
+
+procedure ConnectDatabase(var conDatabase: TADOConnection;
+  sDatabaseLocation: String; owner: TObject);
+begin
+
+  if not(Pos(':', sDatabaseLocation) > 0) then
+    sDatabaseLocation := FilePath(sDatabaseLocation);
+
+  // Creating connection
+  conDatabase := TADOConnection.Create(nil);
+
+  // Setting up connection
+  conDatabase.ConnectionString :=
+    'Provider=Microsoft.Jet.OLEDB.4.0;Data Source=' + sDatabaseLocation +
+    ';Mode=ReadWrite;Persist Security Info=False';
+  conDatabase.LoginPrompt := False;
+  conDatabase.Open;
+
+end;
+
+procedure ConnectTable(var tblTable: TADOTable; sTableName: String;
+  conDatabase: TADOConnection);
+begin
+
+  tblTable := TADOTable.Create(conDatabase.owner);
+  tblTable.Connection := conDatabase;
+  tblTable.TableName := sTableName;
+
+end;
+
+procedure EditRecord(var tblTable: TADOTable; arrInput: Array of Variant);
+var
+  i: Integer;
+  bOpen: Boolean;
+begin
+
+  bOpen := tblTable.Active;
+
+  if not bOpen then
+    tblTable.Open;
+
+  tblTable.Edit;
+
+  // Looping through each field in the table and finding the fileds name
+  for i := 0 to tblTable.FieldCount - 1 do
+  begin
+    // if the datatype is a date it won't convert it to a string
+    if tblTable.Fields[i].DataType in [ftDate, ftDateTime] then
+      tblTable[tblTable.Fields[i].DisplayName] := arrInput[i]
+      // if the field is not a autonumber it will convert the value to a string and assign
+    else if tblTable.Fields[i].DataType <> ftAutoInc then
+      tblTable[tblTable.Fields[i].DisplayName] := arrInput[i];
+  end;
+
+  tblTable.Post;
+
+  if not bOpen then
+    tblTable.Close;
+
+end;
+
+procedure InsertRecord(var tblTable: TADOTable; arrInput: Array of Variant);
+var
+  i: Integer;
+  bOpen: Boolean;
+begin
+
+  bOpen := tblTable.Active;
+
+  if not bOpen then
+    tblTable.Open;
+
+  tblTable.Insert;
+
+  // Looping through each field in the table and finding the fileds name
+  for i := 0 to tblTable.FieldCount - 1 do
+  begin
+    // if the datatype is a date it won't convert it to a string
+    if tblTable.Fields[i].DataType in [ftDate, ftDateTime] then
+      tblTable[tblTable.Fields[i].DisplayName] := arrInput[i]
+      // if the field is not a autonumber it will convert the value to a string and assign
+    else if tblTable.Fields[i].DataType <> ftAutoInc then
+      tblTable[tblTable.Fields[i].DisplayName] := arrInput[i];
+  end;
+
+  tblTable.Post;
+
+  if not bOpen then
+    tblTable.Close;
+
+end;
+
+procedure DeleteRecord(var tblTable: TADOTable);
+
+var
+  bOpen: Boolean;
+
+begin
+
+  bOpen := tblTable.Active;
+
+  if not bOpen then
+    tblTable.Open;
+
+  if tblTable.RecordCount > 0 then
+    tblTable.Delete;
+
+  if not bOpen then
+    tblTable.Close;
+
+end;
+
+procedure OpenTables(arrTables: Array of TADOTable);
+var
+  i: Integer;
+begin
+
+  for i := 0 to Length(arrTables) - 1 do
+    if not arrTables[i].Active then
+      arrTables[i].Open;
+
+end;
+
+procedure CloseTables(arrTables: Array of TADOTable);
+var
+  i: Integer;
+begin
+
+  for i := 0 to Length(arrTables) - 1 do
+    if arrTables[i].Active then
+      arrTables[i].Close;
+
+end;
+
+function CreatePanel(iWidth: Integer; iHeight: Integer; iLeft: Integer;
+  iTop: Integer; sName: String; owner: TComponent): TPanel;
+var
+  panel: TPanel;
+
+begin
+
+  panel := TPanel.Create(owner);
+  panel.SetParentComponent(owner);
+  panel.Width := iWidth;
+  panel.Height := iHeight;
+  panel.Left := iLeft;
+  panel.Top := iTop;
+  panel.Name := sName;
+
+  Result := panel;
 
 end;
 
